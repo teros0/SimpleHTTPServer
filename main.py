@@ -2,6 +2,7 @@ import os
 import sys
 import socket
 import mimetypes
+import codecs
 
 
 class SimpleHTTPServer:
@@ -26,7 +27,8 @@ class SimpleHTTPServer:
         print("Path:", full_path)
         try:
             response = self.create_response(full_path)
-            conn.sendall(response)
+            conn.sendall(response[0])
+            conn.sendall(response[1])
         finally:
             conn.close()
 
@@ -58,10 +60,11 @@ class SimpleHTTPServer:
                         <hr>
                         </body>
                         </html>"""
+            body = body.encode('utf-8')
         else:
-            with open(path, 'r') as f:
+            with open(path, 'rb') as f:
                 body = f.read()
-        return body.encode('utf-8')
+        return body
 
     def create_response(self, path):
 
@@ -78,8 +81,10 @@ class SimpleHTTPServer:
             pass
 
         headers = self.create_head(path)
+        print(type(headers))
         body = self.create_body(path, make_list)
-        response = headers + body
+        print(type(body))
+        response = (headers, body)
         return response
 
     def serve_forever(self):
@@ -97,4 +102,8 @@ else:
 
 if __name__ == "__main__":
     server = SimpleHTTPServer(host, port)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\Keyboard interruption, exiting.")
+        sys.exit(0)
