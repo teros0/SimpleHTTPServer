@@ -21,34 +21,66 @@ class SimpleHTTPServer:
         data = conn.recv(1024)
         request = data.decode('utf-8')
         print("Received: {}".format(request))
-        path = sys.path[0] + (request.split()[1] if data else '/')
-        print("Path:", path)
-        response = self.create_response(path)
-        conn.sendall(response)
-        conn.close()
+        file_path = request.split()[1] if data else '/'
+        full_path = sys.path[0] + file_path
+        print("Path:", full_path)
+        try:
+            response = self.create_response(full_path)
+            conn.sendall(response)
+        finally:
+            conn.close()
+
+    def create_head(self, path):
+
+        headers = "HTTP/1.1 200 OK\n"
+        if os.path.isfile(path):
+            type = mimetypes.guess_type(path)[0]
+            headers += 'Content-Type: {}\n\n'.format(type)
+        else:
+            headers += 'Content-Type: text/html\n\n'
+        return headers.encode('utf-8')
+
+    def create_body(self, path, make_list):
+
+        if make_list:
+            body = """<!DOCTYPE html>
+                        <html>
+                                <title>Directory listing for {0}</title>
+                                <body>
+                                <h2>Directory listing for {0}</h2>
+                                <hr>
+                                <ul>""".format(path)
+            for entry in os.listdir(path):
+                entry = entry + '/' if os.path.isdir(entry) else entry
+                body += "<li><a href='{0}'>{0}</a>".format(entry)
+
+            body += """</ul>
+                        <hr>
+                        </body>
+                        </html>"""
+        else:
+            with open(path, 'r') as f:
+                body = f.read()
+        return body.encode('utf-8')
 
     def create_response(self, path):
-        headers = "HTTP/1.1 200 OK\n"
 
+        make_list = 0
         if os.path.isdir(path):
             folder_content = os.listdir(path)
 
             if 'index.html' in folder_content:
-                headers += 'Content-Type: text/html\n\n'
-                with open(path + '/index.html', 'r') as html:
-                    body = html.read()
-
+                path += '/index.html'
             else:
-                pass
-        else:
-            type = mimetypes.guess_type(path)[0]
-            headers += 'Content-Type: {}\n\n'.format(type)
-            with open(path, 'r') as file:
-                    body = file.read()
+                make_list = 1
 
+        else:
+            pass
+
+        headers = self.create_head(path)
+        body = self.create_body(path, make_list)
         response = headers + body
-        byte_resp = response.encode('utf-8')
-        return byte_resp
+        return response
 
     def serve_forever(self):
 
