@@ -14,7 +14,7 @@ class SimpleHTTPServer:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.host, self.port))
         self.sock.listen(5)
-        print("Server initialized on port {} host {}".format(self.port, self.host))
+        print("Server initialized on host {} port {}".format(self.host, self.port))
 
     def process_request(self):
 
@@ -22,7 +22,7 @@ class SimpleHTTPServer:
         data = conn.recv(1024)
         request = data.decode('utf-8')
         print("Received: {}".format(request))
-        file_path = request.split()[1] if data else '/'
+        file_path = request.split()[1] if request else '/'
         full_path = sys.path[0] + file_path
         print("Path:", full_path)
         try:
@@ -42,28 +42,27 @@ class SimpleHTTPServer:
             headers += 'Content-Type: text/html\n\n'
         return headers.encode('utf-8')
 
-    def create_body(self, path, make_list):
-
-        if make_list:
-            body = """<!DOCTYPE html>
+    def list_dirs(self, path):
+        with open(path + '.temp_index.html', 'w+') as f:
+            f.write("""<!DOCTYPE html>
                         <html>
-                                <title>Directory listing for {0}</title>
-                                <body>
-                                <h2>Directory listing for {0}</h2>
-                                <hr>
-                                <ul>""".format(path)
+                            <title>Directory listing for {0}</title>
+                            <body>
+                            <h2>Directory listing for {0}</h2>
+                            <hr>
+                            <ul>\n""".format(path))
             for entry in os.listdir(path):
-                entry = entry + '/' if os.path.isdir(entry) else entry
-                body += "<li><a href='{0}'>{0}</a>".format(entry)
+                print("ENTRIES", entry)
+                if entry == '.temp_index.html':
+                    continue
+                entry = entry + '/' if os.path.isdir(path + entry) else entry
+                f.write("<li><a href='{0}'>{0}</a>\n".format(entry))
+            print("TEMPORARY FILE", f.read())
+        return path + '.temp_index.html'
 
-            body += """</ul>
-                        <hr>
-                        </body>
-                        </html>"""
-            body = body.encode('utf-8')
-        else:
-            with open(path, 'rb') as f:
-                body = f.read()
+    def create_body(self, path, make_list):
+        with open(path, 'rb') as f:
+            body = f.read()
         return body
 
     def create_response(self, path):
@@ -75,15 +74,10 @@ class SimpleHTTPServer:
             if 'index.html' in folder_content:
                 path += '/index.html'
             else:
-                make_list = 1
-
-        else:
-            pass
+                path = self.list_dirs(path)
 
         headers = self.create_head(path)
-        print(type(headers))
         body = self.create_body(path, make_list)
-        print(type(body))
         response = (headers, body)
         return response
 
