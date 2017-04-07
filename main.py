@@ -2,7 +2,6 @@ import os
 import sys
 import socket
 import mimetypes
-import codecs
 
 
 class SimpleHTTPServer:
@@ -14,7 +13,8 @@ class SimpleHTTPServer:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.host, self.port))
         self.sock.listen(5)
-        print("Server initialized on host {} port {}".format(self.host, self.port))
+        print("Server initialized on host {} port {}"
+              .format(self.host, self.port))
 
     def process_request(self):
 
@@ -22,9 +22,9 @@ class SimpleHTTPServer:
         data = conn.recv(1024)
         request = data.decode('utf-8')
         print("Received: {}".format(request))
-        file_path = request.split()[1] if request else '/'
+        file_path = request.split()[1]
         full_path = sys.path[0] + file_path
-        print("Path:", full_path)
+        print("Path:", os.path.relpath(full_path))
         try:
             response = self.create_response(full_path)
             conn.sendall(response[0])
@@ -43,7 +43,8 @@ class SimpleHTTPServer:
         return headers.encode('utf-8')
 
     def list_dirs(self, path):
-        with open(path + '.temp_index.html', 'w+') as f:
+        print("LISTDIR PATH: ", path)
+        with open(path + '/.temp_index.html', 'w+') as f:
             f.write("""<!DOCTYPE html>
                         <html>
                             <title>Directory listing for {0}</title>
@@ -55,10 +56,10 @@ class SimpleHTTPServer:
                 print("ENTRIES", entry)
                 if entry == '.temp_index.html':
                     continue
-                entry = entry + '/' if os.path.isdir(path + entry) else entry
-                f.write("<li><a href='{0}'>{0}</a>\n".format(entry))
+                f.write("<li><a href='/{0}/{1}'>{1}</a>\n"
+                        .format(os.path.relpath(path), entry))
             print("TEMPORARY FILE", f.read())
-        return path + '.temp_index.html'
+        return path + '/.temp_index.html'
 
     def create_body(self, path, make_list):
         with open(path, 'rb') as f:
