@@ -2,6 +2,7 @@ import os
 import sys
 import socket
 import mimetypes
+from functools import lru_cache
 
 
 class SimpleHTTPServer:
@@ -21,10 +22,8 @@ class SimpleHTTPServer:
         conn, addr = self.sock.accept()
         data = conn.recv(1024)
         request = data.decode('utf-8')
-        print("Received: {}".format(request))
         file_path = request.split()[1]
         full_path = sys.path[0] + file_path
-        print("Path:", os.path.relpath(full_path))
         try:
             response = self.create_response(full_path)
             conn.sendall(response[0])
@@ -32,6 +31,7 @@ class SimpleHTTPServer:
         finally:
             conn.close()
 
+    @lru_cache(maxsize=10)
     def create_head(self, path):
 
         headers = "HTTP/1.1 200 OK\n"
@@ -43,7 +43,6 @@ class SimpleHTTPServer:
         return headers.encode('utf-8')
 
     def list_dirs(self, path):
-        print("LISTDIR PATH: ", path)
         with open(path + '/.temp_index.html', 'w+') as f:
             f.write("""<!DOCTYPE html>
                         <html>
@@ -53,32 +52,29 @@ class SimpleHTTPServer:
                             <hr>
                             <ul>\n""".format(path))
             for entry in os.listdir(path):
-                print("ENTRIES", entry)
                 if entry == '.temp_index.html':
                     continue
                 f.write("<li><a href='/{0}/{1}'>{1}</a>\n"
                         .format(os.path.relpath(path), entry))
-            print("TEMPORARY FILE", f.read())
         return path + '/.temp_index.html'
 
-    def create_body(self, path, make_list):
+    def create_body(self, path):
+
         with open(path, 'rb') as f:
             body = f.read()
         return body
 
     def create_response(self, path):
 
-        make_list = 0
         if os.path.isdir(path):
             folder_content = os.listdir(path)
-
             if 'index.html' in folder_content:
                 path += '/index.html'
             else:
                 path = self.list_dirs(path)
 
         headers = self.create_head(path)
-        body = self.create_body(path, make_list)
+        body = self.create_body(path)
         response = (headers, body)
         return response
 
